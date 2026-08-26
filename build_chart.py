@@ -125,7 +125,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     font-family:ui-rounded,"SF Pro Rounded","Nunito","Segoe UI Rounded",system-ui,-apple-system,"Segoe UI",sans-serif;
     --logo:__LOGO_URL__;
     background:var(--page); color:var(--text-primary);
-    min-height:100vh; padding:24px; max-width:1080px; margin:0 auto;
+    min-height:100vh; padding:24px;
   }
   .head{display:flex; align-items:center; gap:14px; margin-bottom:18px}
   .logo{
