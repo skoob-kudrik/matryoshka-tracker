@@ -110,7 +110,7 @@ launchctl load ~/Library/LaunchAgents/ru.matryoshka.collect.plist
 
 Как устроено (`.github/workflows/update.yml`):
 
-- по будням в **16:17 МСК** (cron в UTC — `17 13 * * 1-5`) + кнопка ручного
+- по будням в **16:00 МСК** (cron в UTC — `0 13 * * 1-5`) + кнопка ручного
   запуска (`workflow_dispatch`);
 - job `build`: `collect.py` → `build_chart.py`, коммит свежих `matryoshka.db` и
   `chart.html` обратно в репозиторий (история копится в git), затем выгрузка
