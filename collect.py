@@ -21,6 +21,7 @@ import json
 import re
 import socket
 import sqlite3
+import ssl
 import sys
 import time
 import urllib.error
@@ -52,6 +53,29 @@ RETRY_DELAY = 300         # пауза между попытками, сек (5 
 NET_ERRORS = (urllib.error.URLError, socket.gaierror, socket.timeout,
               TimeoutError, ConnectionError)
 
+# MOEX (iss.moex.com) перешёл на национальный УЦ «Russian Trusted Root CA»
+# (Минцифры), которого нет в системном хранилище доверия — проверка цепочки
+# падает с CERTIFICATE_VERIFY_FAILED. Официальный бандл лежит рядом со скриптом
+# (russian_trusted_ca.pem, качается с gu-st.ru по уже доверенному TLS); при его
+# наличии добавляем корень к системным, не отключая проверку сертификатов.
+CA_BUNDLE = HERE / "russian_trusted_ca.pem"
+
+
+def _build_ssl_context() -> ssl.SSLContext:
+    ctx = ssl.create_default_context()
+    if CA_BUNDLE.exists():
+        try:
+            ctx.load_verify_locations(cafile=str(CA_BUNDLE))
+        except ssl.SSLError as e:  # битый/непрочитанный бандл — не должно валить запуск
+            print(f"[tls]    не удалось загрузить {CA_BUNDLE.name}: {e}", file=sys.stderr)
+    else:
+        print(f"[tls]    нет {CA_BUNDLE.name} — MOEX может не пройти проверку TLS",
+              file=sys.stderr)
+    return ctx
+
+
+SSL_CONTEXT = _build_ssl_context()
+
 
 # --------------------------------------------------------------------------- #
 # HTTP
@@ -61,8 +85,13 @@ def http_get(url: str, timeout: int = 30) -> bytes:
     for attempt in range(1, RETRY_ATTEMPTS + 1):
         try:
             req = urllib.request.Request(url, headers={"User-Agent": UA})
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
+            with urllib.request.urlopen(req, timeout=timeout, context=SSL_CONTEXT) as resp:
                 return resp.read()
+        except urllib.error.URLError as e:
+            # Ошибка сертификата не транзиентна — нет смысла ждать и повторять.
+            if isinstance(getattr(e, "reason", None), ssl.SSLCertVerificationError):
+                raise
+            last = e
         except NET_ERRORS as e:
             last = e
             if attempt < RETRY_ATTEMPTS:
